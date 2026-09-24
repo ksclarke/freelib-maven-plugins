@@ -24,11 +24,10 @@ import oshi.hardware.HardwareAbstractionLayer;
 /**
  * Sets Maven project properties with values for system.cores, system.free.memory, and system.total.memory; memory
  * values are set with unit of measurement appended (e.g., 200m, 3g, 5000k).
- * <p>
- * To manually run the plugin: `mvn info.freelibrary:freelib-utils:[VERSION]:set-cpumem-properties` (supplying whatever
- * version is appropriate). Usually, though, the plugin would just be configured to run as a part of the Maven
- * lifecycle.
- * </p>
+ *
+ * <p>To manually run the plugin: `mvn info.freelibrary:freelib-utils:[VERSION]:set-cpumem-properties` (supplying
+ * whatever version is appropriate). Usually, though, the plugin would just be configured to run as a part of the Maven
+ * lifecycle.</p>
  */
 @Mojo(name = MojoNames.SET_CPUMEM_PROPERTIES, defaultPhase = LifecyclePhase.INITIALIZE)
 public class CPUandMemoryMojo extends AbstractMojo {

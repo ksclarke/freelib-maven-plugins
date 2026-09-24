@@ -15,6 +15,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -51,8 +52,7 @@ import info.freelibrary.util.warnings.PMD;
  * the system's <code>/etc/mime.types</code> file.
  */
 @Mojo(name = MojoNames.GENERATE_MEDIATYPE, defaultPhase = LifecyclePhase.GENERATE_SOURCES)
-@SuppressWarnings({ PMD.EXCESSIVE_IMPORTS, Checkstyle.MULTIPLE_STRING_LITERALS, PMD.AVOID_DUPLICATE_LITERALS,
-    PMD.CONSECUTIVE_LITERAL_APPENDS, PMD.GOD_CLASS, PMD.TOO_MANY_STATIC_IMPORTS })
+@SuppressWarnings({ PMD.EXCESSIVE_IMPORTS, Checkstyle.MULTIPLE_STRING_LITERALS, PMD.TOO_MANY_STATIC_IMPORTS })
 public class MediaTypeMojo extends AbstractMojo {
 
     /** A static value for the enumeration's class name. */
@@ -447,7 +447,7 @@ public class MediaTypeMojo extends AbstractMojo {
      * @return An array of media types to be used as values in the enum
      */
     private List<MediaTypeEntry> getMediaTypes(final InputStream aInStream, final List<MediaTypeEntry> aEntryList) {
-        final LineNumberReader reader = new LineNumberReader(new InputStreamReader(aInStream));
+        final LineNumberReader reader = new LineNumberReader(new InputStreamReader(aInStream, StandardCharsets.UTF_8));
         final List<MediaTypeEntry> entries = aEntryList == null ? new ArrayList<>() : aEntryList;
 
         reader.lines().map(String::trim).forEach(line -> {

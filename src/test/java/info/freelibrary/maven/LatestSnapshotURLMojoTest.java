@@ -7,11 +7,13 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
  * A test of the {@link LatestSnapshotURLMojo}.
  */
+@Ignore // Maven Central has changed domains and is no longer hosting SNAPSHOTS
 public class LatestSnapshotURLMojoTest extends BetterAbstractMojoTestCase {
 
     /**
