@@ -122,7 +122,7 @@ public abstract class BetterAbstractMojoTestCase extends AbstractMojoTestCase {
 
             reqPop.populateDefaults(request);
             request.setSystemProperties(System.getProperties());
-            session = (DefaultRepositorySystemSession) maven.newRepositorySession(request);
+            session = new DefaultRepositorySystemSession(maven.newRepositorySession(request));
             session.setLocalRepositoryManager(new SimpleLocalRepositoryManagerFactory().newInstance(session,
                     new LocalRepository(request.getLocalRepository().getBasedir())));
 

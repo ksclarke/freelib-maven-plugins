@@ -313,6 +313,7 @@
           </excludes>
           <!--suppress UnresolvedMavenProperty -->
           <argLine>${jacoco.agent.arg}</argLine>
+          <argLine>--sun-misc-unsafe-memory-access=allow</argLine>
         </configuration>
       </plugin>
       <plugin>

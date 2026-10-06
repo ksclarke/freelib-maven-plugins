@@ -11,6 +11,7 @@ import info.freelibrary.util.LoggerFactory;
 import info.freelibrary.util.ThrowingConsumer;
 import info.freelibrary.util.warnings.PMD;
 import org.apache.commons.io.filefilter.RegexFileFilter;
+import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -155,7 +156,8 @@ public class I18nCodesMojo extends AbstractMojo {
     private void generateMessageCodes(final List<String> aFilesList) {
         final Properties properties = new Properties();
 
-        aFilesList.stream().map(File::new).filter(File::exists).forEach((ThrowingConsumer<File>) file -> {
+        aFilesList.stream().map(File::new).filter(File::exists).forEach((ThrowingConsumer<File,
+          MojoExecutionException>) file -> {
             LOGGER.debug("Generating message codes for: {}", file);
 
             try (FileInputStream inStream = new FileInputStream(file)) {
@@ -237,7 +239,7 @@ public class I18nCodesMojo extends AbstractMojo {
     private List<String> getPropertyFiles() throws IOException {
         final List<String> files = new ArrayList<>();
 
-        myPropertyFiles.stream().forEach((ThrowingConsumer<String>) file -> {
+        myPropertyFiles.stream().forEach((ThrowingConsumer<String, DependencyResolutionRequiredException>) file -> {
             if (new File(file).exists()) {
                 files.add(file);
             } else {
@@ -246,7 +248,7 @@ public class I18nCodesMojo extends AbstractMojo {
 
                 LOGGER.debug(MessageCodes.MVN_131, file);
 
-                classpathStream.filter(isJar).forEach((ThrowingConsumer<String>) jar -> {
+                classpathStream.filter(isJar).forEach((ThrowingConsumer<String, IOException>) jar -> {
                     final JarFile jarFile = new JarFile(jar);
 
                     if (JarUtils.contains(jarFile, file)) {
@@ -270,7 +272,7 @@ public class I18nCodesMojo extends AbstractMojo {
      * @param aFilesList A list of XML resource files
      */
     private void writePropertiesFiles(final List<String> aFilesList) {
-        aFilesList.stream().forEach((ThrowingConsumer<String>) xmlFilePath -> {
+        aFilesList.stream().forEach((ThrowingConsumer<String, IOException>) xmlFilePath -> {
             final Path fileName = Path.of(xmlFilePath.replace(".xml", ".properties")).getFileName();
             final String projectDir = myProject.getBasedir().getAbsolutePath();
             final Path filePath = Path.of(projectDir, "target/classes", fileName.toString());
