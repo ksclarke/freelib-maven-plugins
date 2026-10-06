@@ -15,6 +15,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -45,14 +46,14 @@ import info.freelibrary.util.LoggerFactory;
 import info.freelibrary.util.StringUtils;
 import info.freelibrary.util.warnings.Checkstyle;
 import info.freelibrary.util.warnings.PMD;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A Maven mojo that generates an enum of pre-configured mime-types, adding any addition ones (with extensions) found in
  * the system's <code>/etc/mime.types</code> file.
  */
 @Mojo(name = MojoNames.GENERATE_MEDIATYPE, defaultPhase = LifecyclePhase.GENERATE_SOURCES)
-@SuppressWarnings({ PMD.EXCESSIVE_IMPORTS, Checkstyle.MULTIPLE_STRING_LITERALS, PMD.AVOID_DUPLICATE_LITERALS,
-    PMD.CONSECUTIVE_LITERAL_APPENDS, PMD.GOD_CLASS, PMD.TOO_MANY_STATIC_IMPORTS })
+@SuppressWarnings({ PMD.EXCESSIVE_IMPORTS, Checkstyle.MULTIPLE_STRING_LITERALS, PMD.TOO_MANY_STATIC_IMPORTS })
 public class MediaTypeMojo extends AbstractMojo {
 
     /** A static value for the enumeration's class name. */
@@ -155,8 +156,8 @@ public class MediaTypeMojo extends AbstractMojo {
         final JavaDocSource<MethodSource<JavaEnumSource>> javadoc;
 
         final String method = """
-            public static Optional<MediaType> fromExt(final String aExt, final String aHint) {
-                final String hint = aHint != null ? aHint.toLowerCase() : null;
+            public static Optional<MediaType> fromExt(final String aExt, @Nullable final String aHint) {
+                final String hint = aHint != null ? aHint.toLowerCase(Locale.US) : null;
                 MediaType chosenMediaType = null;
 
                 for (final MediaType mediaType : values()) {
@@ -177,6 +178,14 @@ public class MediaTypeMojo extends AbstractMojo {
 
         if (!aSource.hasImport(Optional.class)) {
             aSource.addImport(Optional.class);
+        }
+
+        if (!aSource.hasImport(Nullable.class)) {
+            aSource.addImport(Nullable.class);
+        }
+
+        if (!aSource.hasImport(Locale.class)) {
+            aSource.addImport(Locale.class);
         }
 
         javadoc = aSource.addMethod(method).getJavaDoc();
@@ -256,7 +265,7 @@ public class MediaTypeMojo extends AbstractMojo {
             public static List<MediaType> getTypes(final String aClass) {
                 final List<MediaType> types = new ArrayList<>();
                 for (final MediaType mediaType : values()) {
-                    if (mediaType.myType.startsWith(aClass.toLowerCase() + \"/\")) {
+                    if (mediaType.myType.startsWith(aClass.toLowerCase(Locale.US) + \"/\")) {
                         types.add(mediaType);
                     }
                 }
@@ -272,6 +281,10 @@ public class MediaTypeMojo extends AbstractMojo {
 
         if (!aSource.hasImport(ArrayList.class)) {
             aSource.addImport(ArrayList.class);
+        }
+
+        if (!aSource.hasImport(Locale.class)) {
+            aSource.addImport(Locale.class);
         }
 
         // Add Javadocs for this method
@@ -316,7 +329,7 @@ public class MediaTypeMojo extends AbstractMojo {
         final JavaDocSource<MethodSource<JavaEnumSource>> javadoc;
 
         final String method = """
-            public static Optional<MediaType> parse(final String aURI, final String aHint) {
+            public static Optional<MediaType> parse(final String aURI, @Nullable final String aHint) {
                 return parse(URI.create(aURI), aHint);
             }
             """;
@@ -324,6 +337,10 @@ public class MediaTypeMojo extends AbstractMojo {
         // Add the URI class to imports if it hasn't already been added
         if (!aSource.hasImport(URI.class)) {
             aSource.addImport(URI.class);
+        }
+
+        if (!aSource.hasImport(Nullable.class)) {
+            aSource.addImport(Nullable.class);
         }
 
         // Add the parse method to the source
@@ -367,9 +384,8 @@ public class MediaTypeMojo extends AbstractMojo {
      */
     private void addParseUriMethodWithHint(final JavaEnumSource aSource) {
         final JavaDocSource<MethodSource<JavaEnumSource>> javadoc;
-
         final String method = StringUtils.format("""
-            public static Optional<MediaType> parse(final URI aURI, final String aHint) {
+            public static Optional<MediaType> parse(final URI aURI, @Nullable final String aHint) {
                 final String fragment = '{}' + aURI.getFragment();
                 final String ext;
                 final int index;
@@ -447,7 +463,7 @@ public class MediaTypeMojo extends AbstractMojo {
      * @return An array of media types to be used as values in the enum
      */
     private List<MediaTypeEntry> getMediaTypes(final InputStream aInStream, final List<MediaTypeEntry> aEntryList) {
-        final LineNumberReader reader = new LineNumberReader(new InputStreamReader(aInStream));
+        final LineNumberReader reader = new LineNumberReader(new InputStreamReader(aInStream, StandardCharsets.UTF_8));
         final List<MediaTypeEntry> entries = aEntryList == null ? new ArrayList<>() : aEntryList;
 
         reader.lines().map(String::trim).forEach(line -> {
@@ -501,9 +517,7 @@ public class MediaTypeMojo extends AbstractMojo {
     private void readUserMediaTypes(final Path aFilePath, final List<MediaTypeEntry> aMediaTypeList)
             throws MojoExecutionException {
         try (InputStream inStream = Files.newInputStream(aFilePath)) {
-            if (inStream != null) {
-                getMediaTypes(inStream, aMediaTypeList);
-            }
+            getMediaTypes(inStream, aMediaTypeList);
         } catch (final NoSuchFileException details) {
             // We can ignore this... it's okay if it's not there
             LOGGER.trace(details.getMessage(), details);
@@ -563,8 +577,9 @@ public class MediaTypeMojo extends AbstractMojo {
             source.setPackage(myPackagePath).setName(CLASS_NAME);
 
             // Define the enum fields
-            source.addField("private String myType;").getJavaDoc().setText("Sets the media type's identifier.");
-            source.addField("private String[] myExts;").getJavaDoc().setText("Sets the media type's extensions.");
+            source.addField("private final String myType;").getJavaDoc().setText("Sets the media type's identifier.");
+            source.addField("@SuppressWarnings(\"ImmutableEnumChecker\") private final String[] myExts;")
+              .getJavaDoc().setText("Sets the media type's extensions.");
 
             // Create a constructor
             addConstructor(source).setParameters(getConstructorParams()).setBody(getConstructorBody());

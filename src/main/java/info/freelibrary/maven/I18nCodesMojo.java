@@ -1,29 +1,15 @@
-
 package info.freelibrary.maven;
 
 import static info.freelibrary.util.Constants.DASH;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Properties;
-import java.util.UUID;
-import java.util.function.Predicate;
-import java.util.jar.JarFile;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
+import info.freelibrary.util.FileUtils;
+import info.freelibrary.util.I18nRuntimeException;
+import info.freelibrary.util.JarUtils;
+import info.freelibrary.util.Logger;
+import info.freelibrary.util.LoggerFactory;
+import info.freelibrary.util.ThrowingConsumer;
+import info.freelibrary.util.warnings.PMD;
 import org.apache.commons.io.filefilter.RegexFileFilter;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -38,13 +24,25 @@ import org.jboss.forge.roaster.Roaster;
 import org.jboss.forge.roaster.model.source.FieldSource;
 import org.jboss.forge.roaster.model.source.JavaClassSource;
 
-import info.freelibrary.util.FileUtils;
-import info.freelibrary.util.I18nRuntimeException;
-import info.freelibrary.util.JarUtils;
-import info.freelibrary.util.Logger;
-import info.freelibrary.util.LoggerFactory;
-import info.freelibrary.util.ThrowingConsumer;
-import info.freelibrary.util.warnings.PMD;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Properties;
+import java.util.UUID;
+import java.util.function.Predicate;
+import java.util.jar.JarFile;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * I18nCodesMojo is a Maven mojo that can generate a <code>MessageCodes</code> class from which I18N message codes can
@@ -52,8 +50,8 @@ import info.freelibrary.util.warnings.PMD;
  * code can be generic, but the actual text from the pre-configured message file will be displayed in the IDE.
  */
 @Mojo(name = MojoNames.GENERATE_CODES, defaultPhase = LifecyclePhase.PROCESS_SOURCES,
-        requiresDependencyResolution = ResolutionScope.COMPILE)
-@SuppressWarnings({ PMD.EXCESSIVE_IMPORTS })
+  requiresDependencyResolution = ResolutionScope.COMPILE)
+@SuppressWarnings({PMD.EXCESSIVE_IMPORTS})
 public class I18nCodesMojo extends AbstractMojo {
 
     /**
@@ -85,7 +83,7 @@ public class I18nCodesMojo extends AbstractMojo {
      * A configuration option to ignore if the messages file is missing.
      */
     @Parameter(alias = Config.IGNORE_MISSING_MESSAGE_FILES, property = Config.IGNORE_MISSING_MESSAGE_FILES,
-            defaultValue = "false")
+      defaultValue = "false")
     protected boolean isIgnoringMissingFiles;
 
     /**
@@ -98,7 +96,7 @@ public class I18nCodesMojo extends AbstractMojo {
      * A configuration option for the generated sources directory.
      */
     @Parameter(alias = Config.GEN_SRC_DIR, property = Config.GEN_SRC_DIR,
-            defaultValue = "${project.basedir}/src/main/generated")
+      defaultValue = "${project.basedir}/src/main/generated")
     protected File myGeneratedSrcDir;
 
     /**
@@ -114,7 +112,7 @@ public class I18nCodesMojo extends AbstractMojo {
     protected List<String> myPropertyFiles;
 
     @Override
-    @SuppressWarnings({ PMD.PRESERVE_STACK_TRACE, PMD.CYCLOMATIC_COMPLEXITY })
+    @SuppressWarnings({PMD.PRESERVE_STACK_TRACE, PMD.CYCLOMATIC_COMPLEXITY})
     public void execute() throws MojoExecutionException, MojoFailureException {
         LOGGER.info(MessageCodes.MVN_127);
 
@@ -128,7 +126,7 @@ public class I18nCodesMojo extends AbstractMojo {
                 }
             } else {
                 final List<String> fileList = Arrays.stream(FileUtils.listFiles(RESOURCES_DIR, DEFAULT_MESSAGE_FILTER))
-                        .map(File::getAbsolutePath).collect(Collectors.toList());
+                  .map(File::getAbsolutePath).collect(Collectors.toList());
 
                 generateMessageCodes(fileList);
 
@@ -153,7 +151,7 @@ public class I18nCodesMojo extends AbstractMojo {
      *
      * @param aFilesList A list of message files
      */
-    @SuppressWarnings({ PMD.AVOID_FILE_STREAM, PMD.CYCLOMATIC_COMPLEXITY, PMD.COGNITIVE_COMPLEXITY })
+    @SuppressWarnings({PMD.AVOID_FILE_STREAM, PMD.COGNITIVE_COMPLEXITY})
     private void generateMessageCodes(final List<String> aFilesList) {
         final Properties properties = new Properties();
 
@@ -165,7 +163,7 @@ public class I18nCodesMojo extends AbstractMojo {
 
                 final String fullClassName = properties.getProperty(MESSAGE_CLASS_NAME);
                 final String srcFolder = myGeneratedSrcDir == null ? myProject.getBuild().getSourceDirectory()
-                        : myGeneratedSrcDir.getAbsolutePath();
+                  : myGeneratedSrcDir.getAbsolutePath();
 
                 if (fullClassName != null) {
                     final String[] nameParts = fullClassName.split("\\.");
@@ -211,7 +209,7 @@ public class I18nCodesMojo extends AbstractMojo {
                     source.addMethod().setPrivate().setConstructor(true).setBody("super();");
 
                     // Create our new message codes class in the requested package directory
-                    try (FileWriter javaWriter = new FileWriter(new File(pkgDir, className + ".java"))) {
+                    try (FileWriter javaWriter = new FileWriter(new File(pkgDir, className + ".java"), UTF_8)) {
                         // Let's tell Checkstyle to ignore the generated code (if it's so configured)
                         source.getJavaDoc().setFullText(LOGGER.getMessage(MessageCodes.MVN_008));
 
@@ -231,7 +229,7 @@ public class I18nCodesMojo extends AbstractMojo {
     }
 
     /**
-     * Load the user supplied property files from a combination of file and Jar sources.
+     * Load the user-supplied property files from a combination of file and Jar sources.
      *
      * @return An array of accessible property files
      * @throws IOException If there is trouble reading the property files
@@ -285,7 +283,7 @@ public class I18nCodesMojo extends AbstractMojo {
             Files.createDirectories(filePath.getParent());
 
             try (InputStream xmlFileStream = Files.newInputStream(sourceFilePath);
-                    BufferedWriter fileWriter = Files.newBufferedWriter(filePath, StandardCharsets.UTF_8)) {
+                 BufferedWriter fileWriter = Files.newBufferedWriter(filePath, UTF_8)) {
                 properties.loadFromXML(xmlFileStream);
                 properties.store(fileWriter, LOGGER.getMessage(MessageCodes.MVN_126));
             }
