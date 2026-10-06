@@ -308,6 +308,7 @@
           </excludes>
           <!--suppress UnresolvedMavenProperty -->
           <argLine>${jacoco.agent.arg}</argLine>
+          <argLine>--sun-misc-unsafe-memory-access=allow</argLine>
         </configuration>
       </plugin>
       <plugin>
@@ -320,7 +321,7 @@
   <parent>
     <artifactId>freelib-parent</artifactId>
     <groupId>info.freelibrary</groupId>
-    <version>14.2.0</version>
+    <version>14.3.1</version>
   </parent>
 
 </project>
