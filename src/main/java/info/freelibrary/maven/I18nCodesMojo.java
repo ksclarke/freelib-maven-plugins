@@ -1,30 +1,17 @@
-
 package info.freelibrary.maven;
 
 import static info.freelibrary.util.Constants.DASH;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Properties;
-import java.util.UUID;
-import java.util.function.Predicate;
-import java.util.jar.JarFile;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
+import info.freelibrary.util.FileUtils;
+import info.freelibrary.util.I18nRuntimeException;
+import info.freelibrary.util.JarUtils;
+import info.freelibrary.util.Logger;
+import info.freelibrary.util.LoggerFactory;
+import info.freelibrary.util.ThrowingConsumer;
+import info.freelibrary.util.warnings.PMD;
 import org.apache.commons.io.filefilter.RegexFileFilter;
+import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -38,13 +25,25 @@ import org.jboss.forge.roaster.Roaster;
 import org.jboss.forge.roaster.model.source.FieldSource;
 import org.jboss.forge.roaster.model.source.JavaClassSource;
 
-import info.freelibrary.util.FileUtils;
-import info.freelibrary.util.I18nRuntimeException;
-import info.freelibrary.util.JarUtils;
-import info.freelibrary.util.Logger;
-import info.freelibrary.util.LoggerFactory;
-import info.freelibrary.util.ThrowingConsumer;
-import info.freelibrary.util.warnings.PMD;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Properties;
+import java.util.UUID;
+import java.util.function.Predicate;
+import java.util.jar.JarFile;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * I18nCodesMojo is a Maven mojo that can generate a <code>MessageCodes</code> class from which I18N message codes can
@@ -52,8 +51,8 @@ import info.freelibrary.util.warnings.PMD;
  * code can be generic, but the actual text from the pre-configured message file will be displayed in the IDE.
  */
 @Mojo(name = MojoNames.GENERATE_CODES, defaultPhase = LifecyclePhase.PROCESS_SOURCES,
-        requiresDependencyResolution = ResolutionScope.COMPILE)
-@SuppressWarnings({ PMD.EXCESSIVE_IMPORTS })
+  requiresDependencyResolution = ResolutionScope.COMPILE)
+@SuppressWarnings({PMD.EXCESSIVE_IMPORTS})
 public class I18nCodesMojo extends AbstractMojo {
 
     /**
@@ -85,7 +84,7 @@ public class I18nCodesMojo extends AbstractMojo {
      * A configuration option to ignore if the messages file is missing.
      */
     @Parameter(alias = Config.IGNORE_MISSING_MESSAGE_FILES, property = Config.IGNORE_MISSING_MESSAGE_FILES,
-            defaultValue = "false")
+      defaultValue = "false")
     protected boolean isIgnoringMissingFiles;
 
     /**
@@ -98,7 +97,7 @@ public class I18nCodesMojo extends AbstractMojo {
      * A configuration option for the generated sources directory.
      */
     @Parameter(alias = Config.GEN_SRC_DIR, property = Config.GEN_SRC_DIR,
-            defaultValue = "${project.basedir}/src/main/generated")
+      defaultValue = "${project.basedir}/src/main/generated")
     protected File myGeneratedSrcDir;
 
     /**
@@ -114,7 +113,7 @@ public class I18nCodesMojo extends AbstractMojo {
     protected List<String> myPropertyFiles;
 
     @Override
-    @SuppressWarnings({ PMD.PRESERVE_STACK_TRACE, PMD.CYCLOMATIC_COMPLEXITY })
+    @SuppressWarnings({PMD.PRESERVE_STACK_TRACE, PMD.CYCLOMATIC_COMPLEXITY})
     public void execute() throws MojoExecutionException, MojoFailureException {
         LOGGER.info(MessageCodes.MVN_127);
 
@@ -128,7 +127,7 @@ public class I18nCodesMojo extends AbstractMojo {
                 }
             } else {
                 final List<String> fileList = Arrays.stream(FileUtils.listFiles(RESOURCES_DIR, DEFAULT_MESSAGE_FILTER))
-                        .map(File::getAbsolutePath).collect(Collectors.toList());
+                  .map(File::getAbsolutePath).collect(Collectors.toList());
 
                 generateMessageCodes(fileList);
 
@@ -153,85 +152,86 @@ public class I18nCodesMojo extends AbstractMojo {
      *
      * @param aFilesList A list of message files
      */
-    @SuppressWarnings({ PMD.AVOID_FILE_STREAM, PMD.CYCLOMATIC_COMPLEXITY, PMD.COGNITIVE_COMPLEXITY })
+    @SuppressWarnings({PMD.AVOID_FILE_STREAM, PMD.COGNITIVE_COMPLEXITY})
     private void generateMessageCodes(final List<String> aFilesList) {
         final Properties properties = new Properties();
 
-        aFilesList.stream().map(File::new).filter(File::exists).forEach((ThrowingConsumer<File>) file -> {
-            LOGGER.debug("Generating message codes for: {}", file);
+        aFilesList.stream().map(File::new).filter(File::exists).forEach(
+          (ThrowingConsumer<File, MojoExecutionException>) file -> {
+              LOGGER.debug("Generating message codes for: {}", file);
 
-            try (FileInputStream inStream = new FileInputStream(file)) {
-                properties.loadFromXML(inStream);
+              try (FileInputStream inStream = new FileInputStream(file)) {
+                  properties.loadFromXML(inStream);
 
-                final String fullClassName = properties.getProperty(MESSAGE_CLASS_NAME);
-                final String srcFolder = myGeneratedSrcDir == null ? myProject.getBuild().getSourceDirectory()
-                        : myGeneratedSrcDir.getAbsolutePath();
+                  final String fullClassName = properties.getProperty(MESSAGE_CLASS_NAME);
+                  final String srcFolder = myGeneratedSrcDir == null ? myProject.getBuild().getSourceDirectory()
+                    : myGeneratedSrcDir.getAbsolutePath();
 
-                if (fullClassName != null) {
-                    final String[] nameParts = fullClassName.split("\\.");
-                    final int classNameIndex = nameParts.length - 1;
-                    final String className = nameParts[classNameIndex];
-                    final String[] packageParts = Arrays.copyOfRange(nameParts, 0, classNameIndex);
-                    final String pkgName = StringUtils.join(packageParts, ".");
-                    final JavaClassSource source = Roaster.create(JavaClassSource.class);
-                    final File pkgDir = Path.of(srcFolder, pkgName.replace('.', File.separatorChar)).toFile();
+                  if (fullClassName != null) {
+                      final String[] nameParts = fullClassName.split("\\.");
+                      final int classNameIndex = nameParts.length - 1;
+                      final String className = nameParts[classNameIndex];
+                      final String[] packageParts = Arrays.copyOfRange(nameParts, 0, classNameIndex);
+                      final String pkgName = StringUtils.join(packageParts, ".");
+                      final JavaClassSource source = Roaster.create(JavaClassSource.class);
+                      final File pkgDir = Path.of(srcFolder, pkgName.replace('.', File.separatorChar)).toFile();
 
-                    source.setFinal(true).setPublic();
+                      source.setFinal(true).setPublic();
 
-                    // Make sure the package directory already exists
-                    if (!pkgDir.exists() && !pkgDir.mkdirs()) {
-                        throw new MojoExecutionException(LOGGER.getMessage(MessageCodes.MVN_003, pkgDir, className));
-                    }
+                      // Make sure the package directory already exists
+                      if (!pkgDir.exists() && !pkgDir.mkdirs()) {
+                          throw new MojoExecutionException(LOGGER.getMessage(MessageCodes.MVN_003, pkgDir, className));
+                      }
 
-                    // Cycle through all the entries in the supplied messages file, creating fields
-                    for (final String key : properties.stringPropertyNames()) {
-                        // Create a field that contains the name of the bundle file
-                        if (MESSAGE_CLASS_NAME.equals(key)) {
-                            final FieldSource<JavaClassSource> field = source.addField();
-                            final String bundleName = FileUtils.stripExt(file.getName());
+                      // Cycle through all the entries in the supplied messages file, creating fields
+                      for (final String key : properties.stringPropertyNames()) {
+                          // Create a field that contains the name of the bundle file
+                          if (MESSAGE_CLASS_NAME.equals(key)) {
+                              final FieldSource<JavaClassSource> field = source.addField();
+                              final String bundleName = FileUtils.stripExt(file.getName());
 
-                            field.setName("BUNDLE").setStringInitializer(bundleName);
-                            field.setType(String.class.getSimpleName()).setPublic().setStatic(true).setFinal(true);
-                            field.getJavaDoc().setFullText("Message bundle name.");
-                        }
+                              field.setName("BUNDLE").setStringInitializer(bundleName);
+                              field.setType(String.class.getSimpleName()).setPublic().setStatic(true).setFinal(true);
+                              field.getJavaDoc().setFullText("Message bundle name.");
+                          }
 
-                        // Create a field in our new message codes class for the message
-                        if (!MESSAGE_CLASS_NAME.equals(key)) {
-                            final String normalizedKey = key.replaceAll("[\\.-]", BUNDLE_DELIM);
-                            final String value = properties.getProperty(key);
-                            final FieldSource<JavaClassSource> field = source.addField();
+                          // Create a field in our new message codes class for the message
+                          if (!MESSAGE_CLASS_NAME.equals(key)) {
+                              final String normalizedKey = key.replaceAll("[\\.-]", BUNDLE_DELIM);
+                              final String value = properties.getProperty(key);
+                              final FieldSource<JavaClassSource> field = source.addField();
 
-                            field.setName(normalizedKey).setStringInitializer(key);
-                            field.setType(String.class.getSimpleName()).setPublic().setStatic(true).setFinal(true);
-                            field.getJavaDoc().setFullText("Message: " + value);
-                        }
-                    }
+                              field.setName(normalizedKey).setStringInitializer(key);
+                              field.setType(String.class.getSimpleName()).setPublic().setStatic(true).setFinal(true);
+                              field.getJavaDoc().setFullText("Message: " + value);
+                          }
+                      }
 
-                    // Add private constructor
-                    source.addMethod().setPrivate().setConstructor(true).setBody("super();");
+                      // Add private constructor
+                      source.addMethod().setPrivate().setConstructor(true).setBody("super();");
 
-                    // Create our new message codes class in the requested package directory
-                    try (FileWriter javaWriter = new FileWriter(new File(pkgDir, className + ".java"))) {
-                        // Let's tell Checkstyle to ignore the generated code (if it's so configured)
-                        source.getJavaDoc().setFullText(LOGGER.getMessage(MessageCodes.MVN_008));
+                      // Create our new message codes class in the requested package directory
+                      try (FileWriter javaWriter = new FileWriter(new File(pkgDir, className + ".java"), UTF_8)) {
+                          // Let's tell Checkstyle to ignore the generated code (if it's so configured)
+                          source.getJavaDoc().setFullText(LOGGER.getMessage(MessageCodes.MVN_008));
 
-                        // Name our Java file and add a constructor
-                        source.setPackage(pkgName).setName(className);
+                          // Name our Java file and add a constructor
+                          source.setPackage(pkgName).setName(className);
 
-                        // Lastly, write our generated Java class out to the file system
-                        javaWriter.write(source.toString());
-                    }
-                } else {
-                    LOGGER.warn(MessageCodes.MVN_002, MESSAGE_CLASS_NAME);
-                }
-            } catch (final IOException details) {
-                LOGGER.error(details.getMessage(), details);
-            }
-        });
+                          // Lastly, write our generated Java class out to the file system
+                          javaWriter.write(source.toString());
+                      }
+                  } else {
+                      LOGGER.warn(MessageCodes.MVN_002, MESSAGE_CLASS_NAME);
+                  }
+              } catch (final IOException details) {
+                  LOGGER.error(details.getMessage(), details);
+              }
+          });
     }
 
     /**
-     * Load the user supplied property files from a combination of file and Jar sources.
+     * Load the user-supplied property files from a combination of file and Jar sources.
      *
      * @return An array of accessible property files
      * @throws IOException If there is trouble reading the property files
@@ -239,7 +239,7 @@ public class I18nCodesMojo extends AbstractMojo {
     private List<String> getPropertyFiles() throws IOException {
         final List<String> files = new ArrayList<>();
 
-        myPropertyFiles.stream().forEach((ThrowingConsumer<String>) file -> {
+        myPropertyFiles.stream().forEach((ThrowingConsumer<String, DependencyResolutionRequiredException>) file -> {
             if (new File(file).exists()) {
                 files.add(file);
             } else {
@@ -248,7 +248,7 @@ public class I18nCodesMojo extends AbstractMojo {
 
                 LOGGER.debug(MessageCodes.MVN_131, file);
 
-                classpathStream.filter(isJar).forEach((ThrowingConsumer<String>) jar -> {
+                classpathStream.filter(isJar).forEach((ThrowingConsumer<String, IOException>) jar -> {
                     final JarFile jarFile = new JarFile(jar);
 
                     if (JarUtils.contains(jarFile, file)) {
@@ -272,7 +272,7 @@ public class I18nCodesMojo extends AbstractMojo {
      * @param aFilesList A list of XML resource files
      */
     private void writePropertiesFiles(final List<String> aFilesList) {
-        aFilesList.stream().forEach((ThrowingConsumer<String>) xmlFilePath -> {
+        aFilesList.forEach((ThrowingConsumer<String, IOException>) xmlFilePath -> {
             final Path fileName = Path.of(xmlFilePath.replace(".xml", ".properties")).getFileName();
             final String projectDir = myProject.getBasedir().getAbsolutePath();
             final Path filePath = Path.of(projectDir, "target/classes", fileName.toString());
@@ -285,7 +285,7 @@ public class I18nCodesMojo extends AbstractMojo {
             Files.createDirectories(filePath.getParent());
 
             try (InputStream xmlFileStream = Files.newInputStream(sourceFilePath);
-                    BufferedWriter fileWriter = Files.newBufferedWriter(filePath, StandardCharsets.UTF_8)) {
+                 BufferedWriter fileWriter = Files.newBufferedWriter(filePath, UTF_8)) {
                 properties.loadFromXML(xmlFileStream);
                 properties.store(fileWriter, LOGGER.getMessage(MessageCodes.MVN_126));
             }

@@ -16,7 +16,6 @@ import info.freelibrary.util.warnings.PMD;
 /**
  * Maven related utilities.
  */
-@SuppressWarnings({ PMD.MORE_THAN_ONE_LOGGER })
 public final class MavenUtils {
 
     /**
