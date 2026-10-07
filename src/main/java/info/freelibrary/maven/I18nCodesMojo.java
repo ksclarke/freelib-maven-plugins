@@ -11,6 +11,7 @@ import info.freelibrary.util.LoggerFactory;
 import info.freelibrary.util.ThrowingConsumer;
 import info.freelibrary.util.warnings.PMD;
 import org.apache.commons.io.filefilter.RegexFileFilter;
+import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -155,77 +156,78 @@ public class I18nCodesMojo extends AbstractMojo {
     private void generateMessageCodes(final List<String> aFilesList) {
         final Properties properties = new Properties();
 
-        aFilesList.stream().map(File::new).filter(File::exists).forEach((ThrowingConsumer<File>) file -> {
-            LOGGER.debug("Generating message codes for: {}", file);
+        aFilesList.stream().map(File::new).filter(File::exists).forEach(
+          (ThrowingConsumer<File, MojoExecutionException>) file -> {
+              LOGGER.debug("Generating message codes for: {}", file);
 
-            try (FileInputStream inStream = new FileInputStream(file)) {
-                properties.loadFromXML(inStream);
+              try (FileInputStream inStream = new FileInputStream(file)) {
+                  properties.loadFromXML(inStream);
 
-                final String fullClassName = properties.getProperty(MESSAGE_CLASS_NAME);
-                final String srcFolder = myGeneratedSrcDir == null ? myProject.getBuild().getSourceDirectory()
-                  : myGeneratedSrcDir.getAbsolutePath();
+                  final String fullClassName = properties.getProperty(MESSAGE_CLASS_NAME);
+                  final String srcFolder = myGeneratedSrcDir == null ? myProject.getBuild().getSourceDirectory()
+                    : myGeneratedSrcDir.getAbsolutePath();
 
-                if (fullClassName != null) {
-                    final String[] nameParts = fullClassName.split("\\.");
-                    final int classNameIndex = nameParts.length - 1;
-                    final String className = nameParts[classNameIndex];
-                    final String[] packageParts = Arrays.copyOfRange(nameParts, 0, classNameIndex);
-                    final String pkgName = StringUtils.join(packageParts, ".");
-                    final JavaClassSource source = Roaster.create(JavaClassSource.class);
-                    final File pkgDir = Path.of(srcFolder, pkgName.replace('.', File.separatorChar)).toFile();
+                  if (fullClassName != null) {
+                      final String[] nameParts = fullClassName.split("\\.");
+                      final int classNameIndex = nameParts.length - 1;
+                      final String className = nameParts[classNameIndex];
+                      final String[] packageParts = Arrays.copyOfRange(nameParts, 0, classNameIndex);
+                      final String pkgName = StringUtils.join(packageParts, ".");
+                      final JavaClassSource source = Roaster.create(JavaClassSource.class);
+                      final File pkgDir = Path.of(srcFolder, pkgName.replace('.', File.separatorChar)).toFile();
 
-                    source.setFinal(true).setPublic();
+                      source.setFinal(true).setPublic();
 
-                    // Make sure the package directory already exists
-                    if (!pkgDir.exists() && !pkgDir.mkdirs()) {
-                        throw new MojoExecutionException(LOGGER.getMessage(MessageCodes.MVN_003, pkgDir, className));
-                    }
+                      // Make sure the package directory already exists
+                      if (!pkgDir.exists() && !pkgDir.mkdirs()) {
+                          throw new MojoExecutionException(LOGGER.getMessage(MessageCodes.MVN_003, pkgDir, className));
+                      }
 
-                    // Cycle through all the entries in the supplied messages file, creating fields
-                    for (final String key : properties.stringPropertyNames()) {
-                        // Create a field that contains the name of the bundle file
-                        if (MESSAGE_CLASS_NAME.equals(key)) {
-                            final FieldSource<JavaClassSource> field = source.addField();
-                            final String bundleName = FileUtils.stripExt(file.getName());
+                      // Cycle through all the entries in the supplied messages file, creating fields
+                      for (final String key : properties.stringPropertyNames()) {
+                          // Create a field that contains the name of the bundle file
+                          if (MESSAGE_CLASS_NAME.equals(key)) {
+                              final FieldSource<JavaClassSource> field = source.addField();
+                              final String bundleName = FileUtils.stripExt(file.getName());
 
-                            field.setName("BUNDLE").setStringInitializer(bundleName);
-                            field.setType(String.class.getSimpleName()).setPublic().setStatic(true).setFinal(true);
-                            field.getJavaDoc().setFullText("Message bundle name.");
-                        }
+                              field.setName("BUNDLE").setStringInitializer(bundleName);
+                              field.setType(String.class.getSimpleName()).setPublic().setStatic(true).setFinal(true);
+                              field.getJavaDoc().setFullText("Message bundle name.");
+                          }
 
-                        // Create a field in our new message codes class for the message
-                        if (!MESSAGE_CLASS_NAME.equals(key)) {
-                            final String normalizedKey = key.replaceAll("[\\.-]", BUNDLE_DELIM);
-                            final String value = properties.getProperty(key);
-                            final FieldSource<JavaClassSource> field = source.addField();
+                          // Create a field in our new message codes class for the message
+                          if (!MESSAGE_CLASS_NAME.equals(key)) {
+                              final String normalizedKey = key.replaceAll("[\\.-]", BUNDLE_DELIM);
+                              final String value = properties.getProperty(key);
+                              final FieldSource<JavaClassSource> field = source.addField();
 
-                            field.setName(normalizedKey).setStringInitializer(key);
-                            field.setType(String.class.getSimpleName()).setPublic().setStatic(true).setFinal(true);
-                            field.getJavaDoc().setFullText("Message: " + value);
-                        }
-                    }
+                              field.setName(normalizedKey).setStringInitializer(key);
+                              field.setType(String.class.getSimpleName()).setPublic().setStatic(true).setFinal(true);
+                              field.getJavaDoc().setFullText("Message: " + value);
+                          }
+                      }
 
-                    // Add private constructor
-                    source.addMethod().setPrivate().setConstructor(true).setBody("super();");
+                      // Add private constructor
+                      source.addMethod().setPrivate().setConstructor(true).setBody("super();");
 
-                    // Create our new message codes class in the requested package directory
-                    try (FileWriter javaWriter = new FileWriter(new File(pkgDir, className + ".java"), UTF_8)) {
-                        // Let's tell Checkstyle to ignore the generated code (if it's so configured)
-                        source.getJavaDoc().setFullText(LOGGER.getMessage(MessageCodes.MVN_008));
+                      // Create our new message codes class in the requested package directory
+                      try (FileWriter javaWriter = new FileWriter(new File(pkgDir, className + ".java"), UTF_8)) {
+                          // Let's tell Checkstyle to ignore the generated code (if it's so configured)
+                          source.getJavaDoc().setFullText(LOGGER.getMessage(MessageCodes.MVN_008));
 
-                        // Name our Java file and add a constructor
-                        source.setPackage(pkgName).setName(className);
+                          // Name our Java file and add a constructor
+                          source.setPackage(pkgName).setName(className);
 
-                        // Lastly, write our generated Java class out to the file system
-                        javaWriter.write(source.toString());
-                    }
-                } else {
-                    LOGGER.warn(MessageCodes.MVN_002, MESSAGE_CLASS_NAME);
-                }
-            } catch (final IOException details) {
-                LOGGER.error(details.getMessage(), details);
-            }
-        });
+                          // Lastly, write our generated Java class out to the file system
+                          javaWriter.write(source.toString());
+                      }
+                  } else {
+                      LOGGER.warn(MessageCodes.MVN_002, MESSAGE_CLASS_NAME);
+                  }
+              } catch (final IOException details) {
+                  LOGGER.error(details.getMessage(), details);
+              }
+          });
     }
 
     /**
@@ -237,7 +239,7 @@ public class I18nCodesMojo extends AbstractMojo {
     private List<String> getPropertyFiles() throws IOException {
         final List<String> files = new ArrayList<>();
 
-        myPropertyFiles.stream().forEach((ThrowingConsumer<String>) file -> {
+        myPropertyFiles.stream().forEach((ThrowingConsumer<String, DependencyResolutionRequiredException>) file -> {
             if (new File(file).exists()) {
                 files.add(file);
             } else {
@@ -246,7 +248,7 @@ public class I18nCodesMojo extends AbstractMojo {
 
                 LOGGER.debug(MessageCodes.MVN_131, file);
 
-                classpathStream.filter(isJar).forEach((ThrowingConsumer<String>) jar -> {
+                classpathStream.filter(isJar).forEach((ThrowingConsumer<String, IOException>) jar -> {
                     final JarFile jarFile = new JarFile(jar);
 
                     if (JarUtils.contains(jarFile, file)) {
@@ -270,7 +272,7 @@ public class I18nCodesMojo extends AbstractMojo {
      * @param aFilesList A list of XML resource files
      */
     private void writePropertiesFiles(final List<String> aFilesList) {
-        aFilesList.stream().forEach((ThrowingConsumer<String>) xmlFilePath -> {
+        aFilesList.forEach((ThrowingConsumer<String, IOException>) xmlFilePath -> {
             final Path fileName = Path.of(xmlFilePath.replace(".xml", ".properties")).getFileName();
             final String projectDir = myProject.getBasedir().getAbsolutePath();
             final Path filePath = Path.of(projectDir, "target/classes", fileName.toString());
