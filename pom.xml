@@ -43,7 +43,7 @@
     <!-- Project-specific dependencies -->
     <xom.version>1.4.6</xom.version>
     <maven.version>3.10.0</maven.version>
-    <oshi.core.version>7.7.1</oshi.core.version>
+    <oshi.core.version>7.7.2</oshi.core.version>
     <freelib.utils.version>6.0.1</freelib.utils.version>
     <maven.plugin.version>3.16.0</maven.plugin.version>
     <slf4j.simple.logger.version>2.0.20</slf4j.simple.logger.version>
